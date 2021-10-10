@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   StyleSheet,
   Text,
@@ -8,18 +8,56 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 
-import { useSelector } from "react-redux";
+import initialCitiesIds from "../../data/initialCitiesIds";
 
-import SearchScreen from "./SearchScreen";
+
+import citiesActions from "../store/actions/citiesActions";
+
+import { useSelector, useDispatch } from "react-redux";
 
 import CityCard from "../components/CityCard";
 
 const HomeScreen = ({ navigation }) => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState();
+
   const cities = useSelector((state) => state.availableCities);
   console.log(cities);
-  // DISPATCH SET_CITIES
-  // useEffect();
-  if (cities.length === 0) {
+
+  const dispatch = useDispatch();
+
+  const loadCities = useCallback(async () => {
+    setError(null);
+    setIsRefreshing(true);
+    try {
+      await dispatch(citiesActions.setCities());
+    } catch (err) {
+      setError(err.message);
+    }
+    setIsRefreshing(false);
+  }, [dispatch, setIsLoading, setError]);
+
+  useEffect(() => {
+    setIsLoading(true);
+    loadCities().then(() => setIsLoading(false));
+  }, [dispatch, loadCities]);
+
+  const selectCityHandler = (cityId) => {
+    props.navigation.navigate("Forecast", {
+      cityId,
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <View>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  if (!isLoading && cities.length === 0) {
     return (
       <View>
         <Text>No cities</Text>
@@ -29,10 +67,19 @@ const HomeScreen = ({ navigation }) => {
   return (
     <View>
       <FlatList
+        onRefresh={loadCities}
+        refreshing={isRefreshing}
         data={cities}
-        keyExtractor={(city) => city.id}
-        renderItem={({ item }) => (
-          <CityCard navigation={navigation} city={item.data} />
+        keyExtractor={(city) => city.cityId}
+        renderItem={({ itemData }) => (
+          <CityCard
+            icon={itemData.city.icon}
+            cityName={itemData.city.cityName}
+            cityCountry={itemData.city.cityCountry}
+            weather={itemData.city.weather}
+            temprature={itemData.city.temprature}
+            navigation={navigation}
+          />
         )}
       />
     </View>
